@@ -18,6 +18,13 @@ class UserCancelError(Exception):
     pass
 
 
+class RetourException(Exception):
+    """Levee par RETOUR pour remonter la valeur de retour hors de la fonction."""
+    def __init__(self, value, line):
+        self.value = value
+        self.line = line
+
+
 # ---------- Tokenizer d'expressions ----------
 def tokenize_expr(src, line_num):
     tokens = []
@@ -192,12 +199,23 @@ def parse_expr(tokens, line_num):
                 arg2 = parse_ou()
                 expect_op(')')
                 return {'type': 'alea', 'fromExpr': arg1, 'toExpr': arg2}
-            advance()
+            advance()  # consomme l'identifiant
             if peek() and peek()['type'] == 'op' and peek()['value'] == '[':
                 advance()
                 idx_expr = parse_ou()
                 expect_op(']')
                 return {'type': 'index', 'name': t['value'], 'indexExpr': idx_expr}
+            # Appel de fonction utilisateur
+            if peek() and peek()['type'] == 'op' and peek()['value'] == '(':
+                advance()  # (
+                args = []
+                if not (peek() and peek()['type'] == 'op' and peek()['value'] == ')'):
+                    args.append(parse_ou())
+                    while peek() and peek()['type'] == 'op' and peek()['value'] == ',':
+                        advance()  # ,
+                        args.append(parse_ou())
+                expect_op(')')
+                return {'type': 'call', 'name': t['value'], 'args': args}
             return {'type': 'var', 'name': t['value']}
         if t['type'] == 'op' and t['value'] == '(':
             advance()
@@ -234,7 +252,7 @@ def fmt_val(v):
     return str(v)
 
 
-def eval_expr(node, env, line_num):
+def eval_expr(node, env, line_num, call_fn=None):
     t = node['type']
     if t == 'num':
         return node['value']
@@ -244,7 +262,7 @@ def eval_expr(node, env, line_num):
         return node['value']
     if t == 'var':
         if node['name'] not in env:
-            raise AlgoError('Variable "' + node['name'] + '" non declaree (absente du bloc VARIABLES)', line_num)
+            raise AlgoError('Variable "' + node['name'] + '" non declaree (absente du bloc VARIABLES ou des parametres de la fonction)', line_num)
         v = env[node['name']]
         if isinstance(v, dict):
             raise AlgoError('"' + node['name'] + '" est une liste : precise un indice (ex. ' + node['name'] + '[i]) ou utilise LONGUEUR(' + node['name'] + ')', line_num)
@@ -253,7 +271,7 @@ def eval_expr(node, env, line_num):
         if node['name'] not in env:
             raise AlgoError('Variable "' + node['name'] + '" non declaree (absente du bloc VARIABLES)', line_num)
         target = env[node['name']]
-        idx = eval_expr(node['indexExpr'], env, line_num)
+        idx = eval_expr(node['indexExpr'], env, line_num, call_fn)
         if isinstance(idx, bool) or not isinstance(idx, (int, float)) or not float(idx).is_integer() or idx < 0:
             raise AlgoError('L\'indice doit etre un nombre entier positif ou nul', line_num)
         idx = int(idx)
@@ -278,8 +296,8 @@ def eval_expr(node, env, line_num):
     if t == 'alea':
         if 'fromExpr' not in node:
             return random.random()
-        frm = eval_expr(node['fromExpr'], env, line_num)
-        to = eval_expr(node['toExpr'], env, line_num)
+        frm = eval_expr(node['fromExpr'], env, line_num, call_fn)
+        to = eval_expr(node['toExpr'], env, line_num, call_fn)
         if isinstance(frm, bool) or isinstance(to, bool) or not isinstance(frm, (int, float)) or not isinstance(to, (int, float)):
             raise AlgoError('ALEA attend des bornes numeriques, ex : ALEA(1, 100)', line_num)
         if not float(frm).is_integer() or not float(to).is_integer():
@@ -288,20 +306,24 @@ def eval_expr(node, env, line_num):
         if frm > to:
             raise AlgoError('ALEA : la borne de depart doit etre inferieure ou egale a la borne de fin', line_num)
         return float(random.randint(frm, to))
+    if t == 'call':
+        if call_fn is None:
+            raise AlgoError('Appel de fonction "' + node['name'] + '" impossible dans ce contexte', line_num)
+        return call_fn(node['name'], node['args'], env, line_num)
     if t == 'neg':
-        v = eval_expr(node['expr'], env, line_num)
+        v = eval_expr(node['expr'], env, line_num, call_fn)
         if isinstance(v, bool) or not isinstance(v, (int, float)):
             raise AlgoError('Impossible d\'appliquer "-" a une valeur non numerique', line_num)
         return -v
     if t == 'not':
-        return not eval_expr(node['expr'], env, line_num)
+        return not eval_expr(node['expr'], env, line_num, call_fn)
     if t == 'logic':
-        l = eval_expr(node['left'], env, line_num)
-        r = eval_expr(node['right'], env, line_num)
+        l = eval_expr(node['left'], env, line_num, call_fn)
+        r = eval_expr(node['right'], env, line_num, call_fn)
         return (l and r) if node['op'] == 'ET' else (l or r)
     if t == 'compare':
-        l = eval_expr(node['left'], env, line_num)
-        r = eval_expr(node['right'], env, line_num)
+        l = eval_expr(node['left'], env, line_num, call_fn)
+        r = eval_expr(node['right'], env, line_num, call_fn)
         op = node['op']
         if op == '<': return l < r
         if op == '>': return l > r
@@ -310,8 +332,8 @@ def eval_expr(node, env, line_num):
         if op == '==': return l == r
         if op == '!=': return l != r
     if t == 'arith':
-        l = eval_expr(node['left'], env, line_num)
-        r = eval_expr(node['right'], env, line_num)
+        l = eval_expr(node['left'], env, line_num, call_fn)
+        r = eval_expr(node['right'], env, line_num, call_fn)
         op = node['op']
         if op == '+':
             if isinstance(l, str) or isinstance(r, str):
@@ -344,7 +366,6 @@ def prep_lines(source):
     raw = source.split('\n')
     lines = []
     for idx, text in enumerate(raw):
-        # Cherche // hors des chaines litterales pour eviter de tronquer "http://..."
         in_str = False
         c_idx = -1
         for k, ch in enumerate(text):
@@ -381,6 +402,7 @@ RESERVED_WORDS = {
     'ET', 'OU', 'NON', 'MOD', 'DIV',
     'VRAI', 'FAUX',
     'ALEA', 'LONGUEUR',
+    'FONCTION', 'DEBUT_FONCTION', 'FIN_FONCTION', 'RETOUR', 'UTILISER_FONCTION',
 }
 
 
@@ -399,33 +421,6 @@ def parse_program(source):
             raise AlgoError('"' + word + '" attendu, trouve : "' + l['text'] + '"', l['num'])
         pos_box[0] += 1
         return l
-
-    if not cur() or cur()['text'].upper() != 'VARIABLES':
-        raise AlgoError('Le programme doit commencer par le mot-cle VARIABLES', cur()['num'] if cur() else 1)
-    pos_box[0] += 1
-
-    declarations = []
-    seen_decl = set()
-    while cur() and cur()['text'].upper() != 'DEBUT_ALGORITHME':
-        l = cur()
-        m = re.match(r'^([A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_]*)\s+EST_DU_TYPE\s+([A-Za-zÀ-ÿ_]+)$', l['text'], re.IGNORECASE)
-        if not m:
-            raise AlgoError('Declaration de variable invalide (attendu : nom EST_DU_TYPE NOMBRE/TEXTE/BOOLEEN/LISTE) : "' + l['text'] + '"', l['num'])
-        var_name = m.group(1)
-        if var_name.upper() in RESERVED_WORDS:
-            raise AlgoError('"' + var_name + '" est un mot reserve du langage et ne peut pas etre utilise comme nom de variable', l['num'])
-        if var_name in seen_decl:
-            raise AlgoError('Variable "' + var_name + '" declaree plusieurs fois dans le bloc VARIABLES', l['num'])
-        seen_decl.add(var_name)
-        var_type = m.group(2).upper()
-        if var_type not in TYPES_CONNUS:
-            raise AlgoError('Type inconnu "' + var_type + '" (types autorises : NOMBRE, TEXTE, BOOLEEN, LISTE)', l['num'])
-        declarations.append({'name': var_name, 'vtype': var_type, 'line': l['num']})
-        pos_box[0] += 1
-
-    if len(declarations) == 0:
-        raise AlgoError('Le bloc VARIABLES doit declarer au moins une variable', cur()['num'] if cur() else 1)
-    expect_word_line('DEBUT_ALGORITHME')
 
     def find_keyword_end(text, word):
         m = re.search(r'\b' + word + r'\b\s*$', text, re.IGNORECASE)
@@ -456,6 +451,8 @@ def parse_program(source):
 
     def parse_statement():
         l = cur()
+        if not l:
+            raise AlgoError('Instruction attendue mais fin de programme atteinte', lines[-1]['num'] if lines else 1)
         first_word_raw, rest = split_first_word(l['text'])
         first_word = first_word_raw.upper()
 
@@ -521,6 +518,20 @@ def parse_program(source):
             expect_word_line('FIN_TANT_QUE')
             return {'type': 'TANT_QUE', 'cond': cond_expr, 'block': block, 'line': l['num']}
 
+        if first_word == 'RETOUR':
+            pos_box[0] += 1
+            expr = parse_expr_string(rest.strip(), l['num']) if rest.strip() else None
+            return {'type': 'RETOUR', 'expr': expr, 'line': l['num']}
+
+        if first_word == 'UTILISER_FONCTION':
+            pos_box[0] += 1
+            if not rest.strip():
+                raise AlgoError('UTILISER_FONCTION doit etre suivi d\'un appel de fonction, ex : UTILISER_FONCTION afficher(x)', l['num'])
+            call_expr = parse_expr_string(rest.strip(), l['num'])
+            if call_expr.get('type') != 'call':
+                raise AlgoError('UTILISER_FONCTION attend un appel de fonction, ex : UTILISER_FONCTION afficher(x)', l['num'])
+            return {'type': 'UTILISER_FONCTION', 'call_expr': call_expr, 'line': l['num']}
+
         pv_match = re.match(r'^(.+?)\s+PREND_LA_VALEUR\s+(.+)$', l['text'], re.IGNORECASE)
         if pv_match:
             pos_box[0] += 1
@@ -537,12 +548,63 @@ def parse_program(source):
 
         raise AlgoError('Instruction non reconnue (hors du programme officiel) : "' + l['text'] + '"', l['num'])
 
+    # ----- Blocs FONCTION optionnels (avant VARIABLES) -----
+    functions = {}
+    while cur() and re.match(r'^FONCTION\b', cur()['text'], re.IGNORECASE):
+        func_line = cur()
+        pos_box[0] += 1
+        m = re.match(r'^FONCTION\s+([A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_]*)\s*\(([^)]*)\)\s*$', func_line['text'], re.IGNORECASE)
+        if not m:
+            raise AlgoError('Declaration de fonction invalide. Syntaxe attendue : FONCTION nom(param1, param2)', func_line['num'])
+        func_name = m.group(1)
+        if func_name.upper() in RESERVED_WORDS:
+            raise AlgoError('"' + func_name + '" est un mot reserve et ne peut pas etre utilise comme nom de fonction', func_line['num'])
+        params_str = m.group(2).strip()
+        params = [p.strip() for p in params_str.split(',') if p.strip()] if params_str else []
+        for p in params:
+            if not re.match(r'^[A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_]*$', p):
+                raise AlgoError('Nom de parametre invalide : "' + p + '"', func_line['num'])
+        expect_word_line('DEBUT_FONCTION')
+        func_body = parse_block(['FIN_FONCTION'])
+        expect_word_line('FIN_FONCTION')
+        if func_name in functions:
+            raise AlgoError('Fonction "' + func_name + '" declaree plusieurs fois', func_line['num'])
+        functions[func_name] = {'params': params, 'body': func_body, 'line': func_line['num']}
+
+    # ----- Bloc VARIABLES -----
+    if not cur() or cur()['text'].upper() != 'VARIABLES':
+        raise AlgoError('Le programme doit commencer par VARIABLES (ou par des blocs FONCTION avant VARIABLES)', cur()['num'] if cur() else 1)
+    pos_box[0] += 1
+
+    declarations = []
+    seen_decl = set()
+    while cur() and cur()['text'].upper() != 'DEBUT_ALGORITHME':
+        l = cur()
+        m = re.match(r'^([A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_]*)\s+EST_DU_TYPE\s+([A-Za-zÀ-ÿ_]+)$', l['text'], re.IGNORECASE)
+        if not m:
+            raise AlgoError('Declaration de variable invalide (attendu : nom EST_DU_TYPE NOMBRE/TEXTE/BOOLEEN/LISTE) : "' + l['text'] + '"', l['num'])
+        var_name = m.group(1)
+        if var_name.upper() in RESERVED_WORDS:
+            raise AlgoError('"' + var_name + '" est un mot reserve du langage et ne peut pas etre utilise comme nom de variable', l['num'])
+        if var_name in seen_decl:
+            raise AlgoError('Variable "' + var_name + '" declaree plusieurs fois dans le bloc VARIABLES', l['num'])
+        seen_decl.add(var_name)
+        var_type = m.group(2).upper()
+        if var_type not in TYPES_CONNUS:
+            raise AlgoError('Type inconnu "' + var_type + '" (types autorises : NOMBRE, TEXTE, BOOLEEN, LISTE)', l['num'])
+        declarations.append({'name': var_name, 'vtype': var_type, 'line': l['num']})
+        pos_box[0] += 1
+
+    if len(declarations) == 0:
+        raise AlgoError('Le bloc VARIABLES doit declarer au moins une variable', cur()['num'] if cur() else 1)
+    expect_word_line('DEBUT_ALGORITHME')
+
     body = parse_block(['FIN_ALGORITHME'])
     expect_word_line('FIN_ALGORITHME')
     if pos_box[0] != len(lines):
         raise AlgoError('Instructions presentes apres FIN_ALGORITHME', lines[pos_box[0]]['num'])
 
-    return {'declarations': declarations, 'body': body}
+    return {'declarations': declarations, 'body': body, 'functions': functions}
 
 
 # ---------- Execution ----------
@@ -560,6 +622,7 @@ def run_program(source, trace=False, read_input=None, write_output=None):
     step_count_box = [0]
 
     program = parse_program(source)
+    functions = program['functions']
     env = {}
     decl = {}
     for d in program['declarations']:
@@ -610,6 +673,40 @@ def run_program(source, trace=False, read_input=None, write_output=None):
             return False
         return raw_str
 
+    def call_fn(name, arg_nodes, caller_env, line_num):
+        if name not in functions:
+            raise AlgoError(
+                'Fonction "' + name + '" non definie. Declare-la avec FONCTION ' + name + '(...) avant VARIABLES',
+                line_num)
+        func = functions[name]
+        if len(arg_nodes) != len(func['params']):
+            raise AlgoError(
+                'Fonction "' + name + '" attend ' + str(len(func['params'])) + ' argument(s), ' +
+                str(len(arg_nodes)) + ' fourni(s)',
+                line_num)
+        # Evaluer les arguments dans le scope appelant
+        arg_vals = [eval_expr(a, caller_env, line_num, call_fn) for a in arg_nodes]
+        # Sauvegarder le scope courant
+        saved_env = dict(env)
+        saved_decl = dict(decl)
+        # Installer le scope local (parametres uniquement)
+        env.clear()
+        decl.clear()
+        for param, val in zip(func['params'], arg_vals):
+            env[param] = val
+            decl[param] = None  # pas de verification de type sur les parametres
+        result = None
+        try:
+            exec_block(func['body'])
+        except RetourException as e:
+            result = e.value
+        finally:
+            env.clear()
+            env.update(saved_env)
+            decl.clear()
+            decl.update(saved_decl)
+        return result
+
     def exec_stmt(s):
         tick(s['line'])
         t = s['type']
@@ -628,7 +725,7 @@ def run_program(source, trace=False, read_input=None, write_output=None):
         elif t == 'LIRE_INDEX':
             if decl.get(s['name']) != 'LISTE':
                 raise AlgoError('"' + s['name'] + '" n\'est pas une liste (declare-la avec EST_DU_TYPE LISTE)', s['line'])
-            idx = eval_expr(s['indexExpr'], env, s['line'])
+            idx = eval_expr(s['indexExpr'], env, s['line'], call_fn)
             if isinstance(idx, bool) or not isinstance(idx, (int, float)) or not float(idx).is_integer() or idx < 0:
                 raise AlgoError('L\'indice d\'une liste doit etre un nombre entier positif ou nul', s['line'])
             idx = int(idx)
@@ -637,7 +734,7 @@ def run_program(source, trace=False, read_input=None, write_output=None):
             env[s['name']][idx] = val
             push_trace(s['line'], 'LIRE ' + s['name'] + '[' + str(idx) + '] = ' + fmt_val(val))
         elif t == 'ECRIRE':
-            v = eval_expr(s['expr'], env, s['line'])
+            v = eval_expr(s['expr'], env, s['line'], call_fn)
             output.append(fmt_val(v))
             write_output(fmt_val(v))
             push_trace(s['line'], 'ECRIRE ' + fmt_val(v))
@@ -646,7 +743,7 @@ def run_program(source, trace=False, read_input=None, write_output=None):
                 raise AlgoError('Variable "' + s['name'] + '" non declaree', s['line'])
             if decl.get(s['name']) == 'LISTE':
                 raise AlgoError('Impossible d\'affecter une liste entiere : precise un indice, par exemple ' + s['name'] + '[i] PREND_LA_VALEUR ...', s['line'])
-            v = eval_expr(s['expr'], env, s['line'])
+            v = eval_expr(s['expr'], env, s['line'], call_fn)
             vtype = decl.get(s['name'])
             if vtype == 'NOMBRE':
                 if isinstance(v, bool) or not isinstance(v, (int, float)):
@@ -662,20 +759,20 @@ def run_program(source, trace=False, read_input=None, write_output=None):
         elif t == 'AFFECT_INDEX':
             if decl.get(s['name']) != 'LISTE':
                 raise AlgoError('"' + s['name'] + '" n\'est pas une liste (declare-la avec EST_DU_TYPE LISTE)', s['line'])
-            idx = eval_expr(s['indexExpr'], env, s['line'])
+            idx = eval_expr(s['indexExpr'], env, s['line'], call_fn)
             if isinstance(idx, bool) or not isinstance(idx, (int, float)) or not float(idx).is_integer() or idx < 0:
                 raise AlgoError('L\'indice d\'une liste doit etre un nombre entier positif ou nul', s['line'])
             idx = int(idx)
-            v = eval_expr(s['expr'], env, s['line'])
+            v = eval_expr(s['expr'], env, s['line'], call_fn)
             env[s['name']][idx] = v
             push_trace(s['line'], s['name'] + '[' + str(idx) + '] PREND_LA_VALEUR ' + fmt_val(v))
         elif t == 'SI':
-            c = eval_expr(s['cond'], env, s['line'])
+            c = eval_expr(s['cond'], env, s['line'], call_fn)
             push_trace(s['line'], 'SI -> ' + ('VRAI (branche ALORS)' if c else 'FAUX (branche SINON)'))
             exec_block(s['thenBlock'] if c else s['elseBlock'])
         elif t == 'POUR':
-            frm = eval_expr(s['fromExpr'], env, s['line'])
-            to = eval_expr(s['toExpr'], env, s['line'])
+            frm = eval_expr(s['fromExpr'], env, s['line'], call_fn)
+            to = eval_expr(s['toExpr'], env, s['line'], call_fn)
             if isinstance(frm, bool) or isinstance(to, bool) or not isinstance(frm, (int, float)) or not isinstance(to, (int, float)):
                 raise AlgoError('Les bornes de POUR doivent etre numeriques', s['line'])
             if not float(frm).is_integer() or not float(to).is_integer():
@@ -688,10 +785,19 @@ def run_program(source, trace=False, read_input=None, write_output=None):
                 exec_block(s['block'])
                 tick(s['line'])
         elif t == 'TANT_QUE':
-            while eval_expr(s['cond'], env, s['line']):
+            while eval_expr(s['cond'], env, s['line'], call_fn):
                 tick(s['line'])
                 exec_block(s['block'])
             push_trace(s['line'], 'TANT_QUE termine')
+        elif t == 'RETOUR':
+            v = eval_expr(s['expr'], env, s['line'], call_fn) if s['expr'] is not None else None
+            raise RetourException(v, s['line'])
+        elif t == 'UTILISER_FONCTION':
+            eval_expr(s['call_expr'], env, s['line'], call_fn)  # valeur de retour ignoree
 
-    exec_block(program['body'])
+    try:
+        exec_block(program['body'])
+    except RetourException as e:
+        raise AlgoError('RETOUR utilise en dehors d\'une fonction', e.line)
+
     return {'output': output, 'trace': trace_list, 'declarations': program['declarations']}

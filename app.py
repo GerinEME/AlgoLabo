@@ -46,9 +46,11 @@ COL_OP    = '#C3C9FF'
 
 # ── Mots-cles (coloration syntaxique) ────────────────────────────────
 KW_BLOCK = {'VARIABLES', 'DEBUT_ALGORITHME', 'FIN_ALGORITHME', 'DEBUT_SI', 'FIN_SI',
-            'DEBUT_SINON', 'FIN_SINON', 'DEBUT_POUR', 'FIN_POUR', 'DEBUT_TANT_QUE', 'FIN_TANT_QUE'}
-KW_CTRL  = {'SI', 'ALORS', 'SINON', 'POUR', 'ALLANT_DE', 'A', 'TANT_QUE', 'FAIRE'}
-KW_TYPE  = {'LIRE', 'AFFICHER', 'ECRIRE', 'NOMBRE', 'TEXTE', 'BOOLEEN', 'LISTE', 'LONGUEUR', 'ALEA', 'VRAI', 'FAUX'}
+            'DEBUT_SINON', 'FIN_SINON', 'DEBUT_POUR', 'FIN_POUR', 'DEBUT_TANT_QUE', 'FIN_TANT_QUE',
+            'FONCTION', 'DEBUT_FONCTION', 'FIN_FONCTION'}
+KW_CTRL  = {'SI', 'ALORS', 'SINON', 'POUR', 'ALLANT_DE', 'A', 'TANT_QUE', 'FAIRE', 'RETOUR'}
+KW_TYPE  = {'LIRE', 'AFFICHER', 'ECRIRE', 'NOMBRE', 'TEXTE', 'BOOLEEN', 'LISTE', 'LONGUEUR', 'ALEA',
+            'VRAI', 'FAUX', 'UTILISER_FONCTION'}
 KW_BIND  = {'EST_DU_TYPE', 'PREND_LA_VALEUR'}
 KW_OPW   = {'ET', 'OU', 'NON', 'MOD', 'DIV'}
 
@@ -279,6 +281,38 @@ DEBUT_ALGORITHME
       FIN_SI
     FIN_POUR
   ECRIRE "Le mot " + mot + " contient " + nbVoyelles + " voyelle(s)"
+FIN_ALGORITHME"""),
+    ("10. Fonctions : carre et surface (FONCTION / RETOUR)", """FONCTION carre(valeur)
+DEBUT_FONCTION
+  RETOUR valeur * valeur
+FIN_FONCTION
+
+FONCTION surface(longueur, largeur)
+DEBUT_FONCTION
+  RETOUR longueur * largeur
+FIN_FONCTION
+
+FONCTION afficherTrait()
+DEBUT_FONCTION
+  ECRIRE "--------------------"
+FIN_FONCTION
+
+VARIABLES
+  x EST_DU_TYPE NOMBRE
+  L EST_DU_TYPE NOMBRE
+  l EST_DU_TYPE NOMBRE
+  res EST_DU_TYPE NOMBRE
+DEBUT_ALGORITHME
+  UTILISER_FONCTION afficherTrait()
+  LIRE x
+  res PREND_LA_VALEUR carre(x)
+  ECRIRE "Carre de " + x + " = " + res
+  UTILISER_FONCTION afficherTrait()
+  LIRE L
+  LIRE l
+  res PREND_LA_VALEUR surface(L, l)
+  ECRIRE "Surface = " + res
+  UTILISER_FONCTION afficherTrait()
 FIN_ALGORITHME"""),
 ]
 
@@ -1038,6 +1072,140 @@ class AlgoLaboApp:
                'Nombre reel aleatoire entre 0.0 et 1.0 (exclu)\nEx : ALEA() < 0.5 est vrai une fois sur deux')
         op_btn(row2, 'LONGUEUR(nom)', 'LONGUEUR(nom)', S_FN,
                'Nombre de caracteres d\'une chaine\nEx : LONGUEUR("Bonjour") = 7\nRemplacer nom par la variable chaine')
+
+        # ---- Bouton Fonctions ----
+        self._fn_open = tk.BooleanVar(value=False)
+        self._fn_lbl  = tk.StringVar(value='▸ Fonctions...')
+        btn_fn = tk.Button(bar, textvariable=self._fn_lbl, command=self._toggle_fn_panel,
+                           relief='flat', bg=PANEL, fg=MUTED, cursor='hand2',
+                           activebackground=ACCENT_SOFT, activeforeground=ACCENT_DARK,
+                           font=('Segoe UI', 9), padx=10, pady=4)
+        btn_fn.pack(side='left', padx=(8, 3), pady=6)
+        Tooltip(btn_fn, 'Afficher/masquer le panneau de creation et d\'utilisation de fonctions.\n'
+                        'CREER_FONCTION ouvre un dialogue pour declarer une nouvelle fonction.\n'
+                        'RETOUR et UTILISER_FONCTION inserent les mots-cles correspondants.')
+
+        S_FN2 = dict(bg='#E8F5EE', fg='#1E7040',
+                     activebackground='#5FD68A', activeforeground='white')
+
+        self._fn_panel = tk.Frame(outer, bg='#F0FAF4',
+                                   highlightbackground='#B2DEC2', highlightthickness=1)
+        fn_row = tk.Frame(self._fn_panel, bg='#F0FAF4')
+        fn_row.pack(fill='x', padx=10, pady=6)
+
+        tk.Label(fn_row, text='Fonctions :', bg='#F0FAF4', fg=MUTED,
+                 font=('Segoe UI', 8, 'bold')).pack(side='left', padx=(0, 6))
+
+        btn_creer = tk.Button(fn_row, text='CREER_FONCTION', command=self._dlg_creer_fonction,
+                              relief='flat', cursor='hand2', font=('Segoe UI', 9),
+                              padx=10, pady=3, **S_FN2)
+        btn_creer.pack(side='left', padx=2)
+        Tooltip(btn_creer, 'Declarer une nouvelle fonction.\n'
+                           'Ouvre un dialogue pour saisir le nom et les parametres.\n'
+                           'Insere le squelette FONCTION / DEBUT_FONCTION / FIN_FONCTION\n'
+                           'avant le bloc VARIABLES.')
+
+        tk.Frame(fn_row, width=1, bg='#B2DEC2').pack(side='left', fill='y', padx=8, pady=2)
+
+        btn_retour = tk.Button(fn_row, text='RETOUR',
+                               command=lambda: self._insert_snippet('  RETOUR \n'),
+                               relief='flat', cursor='hand2', font=('Segoe UI', 9),
+                               padx=10, pady=3, **S_FN2)
+        btn_retour.pack(side='left', padx=2)
+        Tooltip(btn_retour, 'Inserer RETOUR : renvoie une valeur depuis la fonction.\n'
+                            'Ex : RETOUR valeur * valeur\n'
+                            'Placer RETOUR a l\'interieur d\'un bloc DEBUT_FONCTION / FIN_FONCTION.')
+
+        btn_utiliser = tk.Button(fn_row, text='UTILISER_FONCTION',
+                                 command=lambda: self._insert_snippet('  UTILISER_FONCTION \n'),
+                                 relief='flat', cursor='hand2', font=('Segoe UI', 9),
+                                 padx=10, pady=3, **S_FN2)
+        btn_utiliser.pack(side='left', padx=2)
+        Tooltip(btn_utiliser, 'Appeler une fonction qui ne renvoie pas de valeur.\n'
+                              'Ex : UTILISER_FONCTION afficherTrait()\n'
+                              'Pour une fonction avec valeur de retour, utiliser directement\n'
+                              'dans une affectation : res PREND_LA_VALEUR carre(x)')
+
+    def _toggle_fn_panel(self):
+        if self._fn_open.get():
+            self._fn_panel.pack_forget()
+            self._fn_lbl.set('▸ Fonctions...')
+            self._fn_open.set(False)
+        else:
+            self._fn_panel.pack(fill='x')
+            self._fn_lbl.set('▾ Fonctions...')
+            self._fn_open.set(True)
+
+    def _dlg_creer_fonction(self):
+        def build(body, close):
+            tk.Label(body, text='Nom de la fonction :', bg=BG, fg=TEXT,
+                     font=('Segoe UI', 9)).grid(row=0, column=0, sticky='w', padx=16, pady=(16, 6))
+            name_var = tk.StringVar()
+            name_entry = tk.Entry(body, textvariable=name_var, font=('Consolas', 10), width=22,
+                                  relief='flat', highlightthickness=1, highlightbackground=BORDER)
+            name_entry.grid(row=0, column=1, sticky='w', padx=(0, 16), pady=(16, 6))
+            body.after(0, name_entry.focus_set)
+
+            tk.Label(body, text='Parametres :', bg=BG, fg=TEXT,
+                     font=('Segoe UI', 9)).grid(row=1, column=0, sticky='w', padx=16, pady=6)
+            params_var = tk.StringVar()
+            params_entry = tk.Entry(body, textvariable=params_var, font=('Consolas', 10), width=22,
+                                    relief='flat', highlightthickness=1, highlightbackground=BORDER)
+            params_entry.grid(row=1, column=1, sticky='w', padx=(0, 16), pady=6)
+            tk.Label(body, text='(laisser vide si aucun parametre, sinon : a, b, c)',
+                     bg=BG, fg=MUTED, font=('Segoe UI', 8)).grid(row=2, column=0, columnspan=2,
+                                                                  padx=16, sticky='w')
+
+            err_label = tk.Label(body, text='', bg=BG, fg=ERR_COLOR, font=('Segoe UI', 8))
+            err_label.grid(row=3, column=0, columnspan=2, padx=16)
+
+            def do_insert():
+                name = name_var.get().strip()
+                if not re.match(r'^[A-Za-z\xc0-\xff_][A-Za-z\xc0-\xff0-9_]*$', name):
+                    err_label.configure(text='Nom invalide (lettres, chiffres, _ ; commence par une lettre)')
+                    name_entry.focus_set()
+                    return
+                if name.upper() in RESERVED_WORDS:
+                    err_label.configure(text='"' + name + '" est un mot reserve du langage')
+                    name_entry.focus_set()
+                    return
+                raw_params = params_var.get().strip()
+                params_list = [p.strip() for p in raw_params.split(',') if p.strip()] if raw_params else []
+                for p in params_list:
+                    if not re.match(r'^[A-Za-z\xc0-\xff_][A-Za-z\xc0-\xff0-9_]*$', p):
+                        err_label.configure(text='Parametre invalide : "' + p + '"')
+                        params_entry.focus_set()
+                        return
+                params_str = ', '.join(params_list)
+                snippet = ('FONCTION ' + name + '(' + params_str + ')\n'
+                           'DEBUT_FONCTION\n'
+                           '  \n'
+                           'FIN_FONCTION\n\n')
+                # Inserer avant VARIABLES (ou en debut de fichier si absent)
+                content = self.code_text.get('1.0', 'end-1c')
+                lines_list = content.split('\n')
+                insert_at = '1.0'
+                for idx, ln in enumerate(lines_list):
+                    if ln.strip().upper() == 'VARIABLES':
+                        insert_at = f'{idx + 1}.0'
+                        break
+                self.code_text.edit_separator()
+                self.code_text.insert(insert_at, snippet)
+                self.highlight()
+                self.linenumbers.redraw()
+                close()
+
+            btn_frame = tk.Frame(body, bg=BG)
+            btn_frame.grid(row=4, column=0, columnspan=2, pady=(8, 12))
+            tk.Button(btn_frame, text='Annuler', command=close, relief='flat',
+                      bg=PANEL, fg=TEXT, font=('Segoe UI', 9), padx=10, pady=4).pack(side='left', padx=8)
+            tk.Button(btn_frame, text='Inserer', command=do_insert, relief='flat',
+                      bg=ACCENT, fg='white', activebackground=ACCENT_DARK, activeforeground='white',
+                      font=('Segoe UI', 9, 'bold'), padx=10, pady=4).pack(side='left', padx=8)
+            name_entry.bind('<Return>', lambda e: do_insert())
+            params_entry.bind('<Return>', lambda e: do_insert())
+
+        self._show_modal('Creer une fonction', build)
 
     def _insert_snippet(self, snippet):
         self.code_text.edit_separator()
