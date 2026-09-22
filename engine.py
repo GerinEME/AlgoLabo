@@ -402,7 +402,7 @@ RESERVED_WORDS = {
     'ET', 'OU', 'NON', 'MOD', 'DIV',
     'VRAI', 'FAUX',
     'ALEA', 'LONGUEUR',
-    'FONCTION', 'DEBUT_FONCTION', 'FIN_FONCTION', 'RETOUR', 'UTILISER_FONCTION',
+    'FONCTION', 'DEBUT_FONCTION', 'FIN_FONCTION', 'RETOUR',
 }
 
 
@@ -523,15 +523,6 @@ def parse_program(source):
             expr = parse_expr_string(rest.strip(), l['num']) if rest.strip() else None
             return {'type': 'RETOUR', 'expr': expr, 'line': l['num']}
 
-        if first_word == 'UTILISER_FONCTION':
-            pos_box[0] += 1
-            if not rest.strip():
-                raise AlgoError('UTILISER_FONCTION doit etre suivi d\'un appel de fonction, ex : UTILISER_FONCTION afficher(x)', l['num'])
-            call_expr = parse_expr_string(rest.strip(), l['num'])
-            if call_expr.get('type') != 'call':
-                raise AlgoError('UTILISER_FONCTION attend un appel de fonction, ex : UTILISER_FONCTION afficher(x)', l['num'])
-            return {'type': 'UTILISER_FONCTION', 'call_expr': call_expr, 'line': l['num']}
-
         pv_match = re.match(r'^(.+?)\s+PREND_LA_VALEUR\s+(.+)$', l['text'], re.IGNORECASE)
         if pv_match:
             pos_box[0] += 1
@@ -545,6 +536,13 @@ def parse_program(source):
             if not re.match(r'^[A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_]*$', lhs):
                 raise AlgoError('Affectation invalide : "' + lhs + '" n\'est pas un nom de variable valide', l['num'])
             return {'type': 'AFFECT', 'name': lhs, 'expr': rhs_expr, 'line': l['num']}
+
+        # Appel de fonction nu : nom(arg1, arg2)
+        if re.match(r'^[A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_]*\s*\(', l['text']):
+            call_expr = parse_expr_string(l['text'], l['num'])
+            if call_expr.get('type') == 'call':
+                pos_box[0] += 1
+                return {'type': 'APPEL_FONCTION', 'call_expr': call_expr, 'line': l['num']}
 
         raise AlgoError('Instruction non reconnue (hors du programme officiel) : "' + l['text'] + '"', l['num'])
 
@@ -792,7 +790,7 @@ def run_program(source, trace=False, read_input=None, write_output=None):
         elif t == 'RETOUR':
             v = eval_expr(s['expr'], env, s['line'], call_fn) if s['expr'] is not None else None
             raise RetourException(v, s['line'])
-        elif t == 'UTILISER_FONCTION':
+        elif t == 'APPEL_FONCTION':
             eval_expr(s['call_expr'], env, s['line'], call_fn)  # valeur de retour ignoree
 
     try:

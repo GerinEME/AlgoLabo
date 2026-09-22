@@ -50,7 +50,7 @@ KW_BLOCK = {'VARIABLES', 'DEBUT_ALGORITHME', 'FIN_ALGORITHME', 'DEBUT_SI', 'FIN_
             'FONCTION', 'DEBUT_FONCTION', 'FIN_FONCTION'}
 KW_CTRL  = {'SI', 'ALORS', 'SINON', 'POUR', 'ALLANT_DE', 'A', 'TANT_QUE', 'FAIRE', 'RETOUR'}
 KW_TYPE  = {'LIRE', 'AFFICHER', 'ECRIRE', 'NOMBRE', 'TEXTE', 'BOOLEEN', 'LISTE', 'LONGUEUR', 'ALEA',
-            'VRAI', 'FAUX', 'UTILISER_FONCTION'}
+            'VRAI', 'FAUX'}
 KW_BIND  = {'EST_DU_TYPE', 'PREND_LA_VALEUR'}
 KW_OPW   = {'ET', 'OU', 'NON', 'MOD', 'DIV'}
 
@@ -303,16 +303,16 @@ VARIABLES
   l EST_DU_TYPE NOMBRE
   res EST_DU_TYPE NOMBRE
 DEBUT_ALGORITHME
-  UTILISER_FONCTION afficherTrait()
+  afficherTrait()
   LIRE x
   res PREND_LA_VALEUR carre(x)
   ECRIRE "Carre de " + x + " = " + res
-  UTILISER_FONCTION afficherTrait()
+  afficherTrait()
   LIRE L
   LIRE l
   res PREND_LA_VALEUR surface(L, l)
   ECRIRE "Surface = " + res
-  UTILISER_FONCTION afficherTrait()
+  afficherTrait()
 FIN_ALGORITHME"""),
 ]
 
@@ -1123,6 +1123,7 @@ class AlgoLaboApp:
         btn_utiliser.pack(side='left', padx=2)
         Tooltip(btn_utiliser, 'Appeler une fonction sans valeur de retour.\n'
                               'Ouvre un dialogue listant les fonctions declarees.\n'
+                              'Insere directement : afficherTrait()\n'
                               'Pour une fonction avec RETOUR, utiliser dans une affectation :\n'
                               '  res PREND_LA_VALEUR carre(x)')
 
@@ -1207,7 +1208,7 @@ class AlgoLaboApp:
                     if not a:
                         err_label.configure(text='Argument manquant : ' + p)
                         return
-                snippet = '  UTILISER_FONCTION ' + name + '(' + ', '.join(args) + ')\n'
+                snippet = '  ' + name + '(' + ', '.join(args) + ')\n'
                 self._insert_snippet(snippet)
                 close()
 
