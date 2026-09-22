@@ -1117,14 +1117,110 @@ class AlgoLaboApp:
                             'Placer RETOUR a l\'interieur d\'un bloc DEBUT_FONCTION / FIN_FONCTION.')
 
         btn_utiliser = tk.Button(fn_row, text='UTILISER_FONCTION',
-                                 command=lambda: self._insert_snippet('  UTILISER_FONCTION \n'),
+                                 command=self._dlg_utiliser_fonction,
                                  relief='flat', cursor='hand2', font=('Segoe UI', 9),
                                  padx=10, pady=3, **S_FN2)
         btn_utiliser.pack(side='left', padx=2)
-        Tooltip(btn_utiliser, 'Appeler une fonction qui ne renvoie pas de valeur.\n'
-                              'Ex : UTILISER_FONCTION afficherTrait()\n'
-                              'Pour une fonction avec valeur de retour, utiliser directement\n'
-                              'dans une affectation : res PREND_LA_VALEUR carre(x)')
+        Tooltip(btn_utiliser, 'Appeler une fonction sans valeur de retour.\n'
+                              'Ouvre un dialogue listant les fonctions declarees.\n'
+                              'Pour une fonction avec RETOUR, utiliser dans une affectation :\n'
+                              '  res PREND_LA_VALEUR carre(x)')
+
+    def _get_declared_functions(self):
+        """Retourne la liste des fonctions declarees : [(nom, [param1, param2, ...]), ...]"""
+        result = []
+        content = self.code_text.get('1.0', 'end-1c')
+        for ln in content.split('\n'):
+            m = re.match(r'^\s*FONCTION\s+([A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_]*)\s*\(([^)]*)\)\s*$',
+                         ln, re.IGNORECASE)
+            if m:
+                name = m.group(1)
+                params_str = m.group(2).strip()
+                params = [p.strip() for p in params_str.split(',') if p.strip()] if params_str else []
+                result.append((name, params))
+        return result
+
+    def _dlg_utiliser_fonction(self):
+        funcs = self._get_declared_functions()
+
+        if not funcs:
+            def build_vide(body, close):
+                tk.Label(body, text='Aucune fonction declaree.\nUtilise CREER_FONCTION\npour en ajouter une.',
+                         bg=BG, fg=TEXT, font=('Segoe UI', 9), justify='center').pack(padx=20, pady=16)
+                btn = tk.Button(body, text='OK', command=close, relief='flat',
+                                bg=ACCENT, fg='white', font=('Segoe UI', 9), padx=16, pady=4)
+                btn.pack(pady=(0, 14))
+                body.after(0, btn.focus_set)
+                body.bind('<Return>', lambda e: close())
+            self._show_modal('Utiliser une fonction', build_vide)
+            return
+
+        def build(body, close):
+            func_labels = [
+                name + '(' + ', '.join(params) + ')' for name, params in funcs
+            ]
+            tk.Label(body, text='Fonction :', bg=BG, fg=TEXT,
+                     font=('Segoe UI', 9)).grid(row=0, column=0, sticky='w', padx=16, pady=(16, 6))
+            fn_combo = ttk.Combobox(body, values=func_labels, state='readonly', width=30,
+                                    font=('Consolas', 10))
+            fn_combo.current(0)
+            fn_combo.grid(row=0, column=1, sticky='w', padx=(0, 16), pady=(16, 6))
+            body.after(0, fn_combo.focus_set)
+
+            # Zone dynamique pour les arguments
+            args_frame = tk.Frame(body, bg=BG)
+            args_frame.grid(row=1, column=0, columnspan=2, sticky='ew', padx=16, pady=(0, 4))
+            arg_vars = []
+
+            def rebuild_args(event=None):
+                for w in args_frame.winfo_children():
+                    w.destroy()
+                arg_vars.clear()
+                _, params = funcs[fn_combo.current()]
+                if not params:
+                    tk.Label(args_frame, text='(pas de parametre)', bg=BG, fg=MUTED,
+                             font=('Segoe UI', 8, 'italic')).pack(anchor='w', pady=2)
+                    return
+                for i, p in enumerate(params):
+                    row = tk.Frame(args_frame, bg=BG)
+                    row.pack(fill='x', pady=2)
+                    tk.Label(row, text=p + ' :', bg=BG, fg=TEXT,
+                             font=('Consolas', 9), width=14, anchor='e').pack(side='left')
+                    v = tk.StringVar()
+                    ent = tk.Entry(row, textvariable=v, font=('Consolas', 10), width=20,
+                                   relief='flat', highlightthickness=1, highlightbackground=BORDER)
+                    ent.pack(side='left', padx=(6, 0))
+                    arg_vars.append(v)
+                    if i == 0:
+                        body.after(0, ent.focus_set)
+
+            fn_combo.bind('<<ComboboxSelected>>', rebuild_args)
+            rebuild_args()
+
+            err_label = tk.Label(body, text='', bg=BG, fg=ERR_COLOR, font=('Segoe UI', 8))
+            err_label.grid(row=2, column=0, columnspan=2, padx=16, pady=(2, 0))
+
+            def do_insert():
+                name, params = funcs[fn_combo.current()]
+                args = [v.get().strip() for v in arg_vars]
+                for i, (p, a) in enumerate(zip(params, args)):
+                    if not a:
+                        err_label.configure(text='Argument manquant : ' + p)
+                        return
+                snippet = '  UTILISER_FONCTION ' + name + '(' + ', '.join(args) + ')\n'
+                self._insert_snippet(snippet)
+                close()
+
+            btn_frame = tk.Frame(body, bg=BG)
+            btn_frame.grid(row=3, column=0, columnspan=2, pady=(8, 12))
+            tk.Button(btn_frame, text='Annuler', command=close, relief='flat',
+                      bg=PANEL, fg=TEXT, font=('Segoe UI', 9), padx=10, pady=4).pack(side='left', padx=8)
+            tk.Button(btn_frame, text='Inserer', command=do_insert, relief='flat',
+                      bg=ACCENT, fg='white', activebackground=ACCENT_DARK, activeforeground='white',
+                      font=('Segoe UI', 9, 'bold'), padx=10, pady=4).pack(side='left', padx=8)
+            body.bind('<Return>', lambda e: do_insert())
+
+        self._show_modal('Utiliser une fonction', build)
 
     def _toggle_fn_panel(self):
         if self._fn_open.get():
