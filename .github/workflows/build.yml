@@ -1,0 +1,40 @@
+name: Build AlgoLabo
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Installer les dependances
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller pillow
+
+      - name: Build exe
+        run: |
+          python -m PyInstaller --onefile --windowed --name "AlgoLabo" --icon "resources\favicon.ico" --add-data "resources\favicon.ico;resources" algolabo.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AlgoLabo
+          path: dist/AlgoLabo.exe
+
+      - name: Creer la release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/AlgoLabo.exe

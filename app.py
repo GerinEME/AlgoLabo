@@ -696,6 +696,8 @@ class AlgoLaboApp:
 
         self.code_text.bind('<KeyRelease>', self._on_text_change)
         self.code_text.bind('<Tab>', self._on_tab)
+        self.code_text.bind('<Shift-Tab>', self._on_shift_tab)
+        self.code_text.bind('<ISO_Left_Tab>', self._on_shift_tab)
         self.code_text.bind('<MouseWheel>', lambda e: self.root.after(10, self.linenumbers.redraw))
         self.code_text.bind('<Button-4>', lambda e: self.root.after(10, self.linenumbers.redraw))
         self.code_text.bind('<Button-5>', lambda e: self.root.after(10, self.linenumbers.redraw))
@@ -1708,7 +1710,31 @@ class AlgoLaboApp:
             self.status_var_color(TEXT)
 
     def _on_tab(self, _event=None):
-        self.code_text.insert(tk.INSERT, '  ')
+        if self.code_text.tag_ranges('sel'):
+            start_line = int(self.code_text.index('sel.first').split('.')[0])
+            sel_last = self.code_text.index('sel.last')
+            end_line = int(sel_last.split('.')[0])
+            if sel_last.split('.')[1] == '0':
+                end_line -= 1
+            for line in range(start_line, end_line + 1):
+                self.code_text.insert(f'{line}.0', '  ')
+        else:
+            self.code_text.insert(tk.INSERT, '  ')
+        return 'break'
+
+    def _on_shift_tab(self, _event=None):
+        if self.code_text.tag_ranges('sel'):
+            start_line = int(self.code_text.index('sel.first').split('.')[0])
+            sel_last = self.code_text.index('sel.last')
+            end_line = int(sel_last.split('.')[0])
+            if sel_last.split('.')[1] == '0':
+                end_line -= 1
+            for line in range(start_line, end_line + 1):
+                line_text = self.code_text.get(f'{line}.0', f'{line}.end')
+                if line_text.startswith('  '):
+                    self.code_text.delete(f'{line}.0', f'{line}.2')
+                elif line_text.startswith(' '):
+                    self.code_text.delete(f'{line}.0', f'{line}.1')
         return 'break'
 
     def highlight(self):
