@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<NotepadPlus>
+    <UserLang name="PseudoCode" ext="algo alg" udlVersion="2.1">
+        <Settings>
+            <Global caseIgnored="yes" allowFoldOfComments="no" foldCompact="no" forcePureLC="0" decimalSeparator="0" />
+            <Prefix Keywords1="no" Keywords2="no" Keywords3="no" Keywords4="no" Keywords5="no" Keywords6="no" Keywords7="no" Keywords8="no" />
+        </Settings>
+        <KeywordLists>
+            <Keywords name="instre1">ALGORITHME DEBUT_ALGORITHME FIN_ALGORITHME VARIABLES FONCTION DEBUT_FONCTION FIN_FONCTION PROCEDURE DEBUT_PROCEDURE FIN_PROCEDURE DEBUT_PROGRAMME FIN_PROGRAMME</Keywords>
+            <Keywords name="instre2">SI ALORS SINON DEBUT_SI FIN_SI DEBUT_SINON FIN_SINON TANT_QUE FAIRE DEBUT_TANT_QUE FIN_TANT_QUE POUR ALLANT_DE DE JUSQU_A A DEBUT_POUR FIN_POUR</Keywords>
+            <Keywords name="type1">NOMBRE TEXTE BOOLEEN LISTE CHAINE ENTIER REEL LISTE_DE CHAINE_DE</Keywords>
+            <Keywords name="type2">LIRE ECRIRE AFFICHER AFFICHER_GRAPHIQUE DEBUT_GRAPHIQUE FIN_GRAPHIQUE EFFACER_GRAPHIQUE LIRE_GRAPHIQUE</Keywords>
+            <Keywords name="type3">ET OU NON MOD DIV PREND_LA_VALEUR EST_DU_TYPE AFFECTER PAR</Keywords>
+            <Keywords name="type4">VRAI FAUX</Keywords>
+            <Keywords name="keyword1">ALEA LONGUEUR RACINE ABS ENT LG RETOUR RETOURNER</Keywords>
+            <Keywords name="keyword2"></Keywords>
+            <Keywords name="keyword3"></Keywords>
+            <Keywords name="keyword4"></Keywords>
+            <Keywords name="keyword5"></Keywords>
+            <Keywords name="keyword6"></Keywords>
+            <Keywords name="keyword7"></Keywords>
+            <Keywords name="keyword8"></Keywords>
+            <Keywords name="Comments">00// 01 02 03 04</Keywords>
+            <Keywords name="Delimiters">00&quot; 01\ 02&quot; 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23</Keywords>
+            <Keywords name="Operators1">+ - * / = &lt; &gt; ! ( ) [ ] . ,</Keywords>
+            <Keywords name="Operators2"></Keywords>
+            <Keywords name="FolderInCode1">DEBUT_ALGORITHME DEBUT_SI DEBUT_SINON DEBUT_TANT_QUE DEBUT_POUR DEBUT_FONCTION DEBUT_PROCEDURE DEBUT_GRAPHIQUE DEBUT_PROGRAMME</Keywords>
+            <Keywords name="FolderInCode2">FIN_ALGORITHME FIN_SI FIN_SINON FIN_TANT_QUE FIN_POUR FIN_FONCTION FIN_PROCEDURE FIN_GRAPHIQUE FIN_PROGRAMME</Keywords>
+            <Keywords name="FolderInComment1"></Keywords>
+            <Keywords name="FolderInComment2"></Keywords>
+            <Keywords name="FolderAtLine"></Keywords>
+        </KeywordLists>
+        <Styles>
+            <WordsStyle name="DEFAULT"           styleID="0"  fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="COMMENTS"          styleID="1"  fgColor="008000" bgColor="FFFFFF" fontName="" fontStyle="2" nesting="0" />
+            <WordsStyle name="LINE COMMENTS"     styleID="2"  fgColor="008000" bgColor="FFFFFF" fontName="" fontStyle="2" nesting="0" />
+            <WordsStyle name="NUMBERS"           styleID="3"  fgColor="098658" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="KEYWORDS1"         styleID="4"  fgColor="0000CC" bgColor="FFFFFF" fontName="" fontStyle="1" nesting="0" />
+            <WordsStyle name="KEYWORDS2"         styleID="5"  fgColor="AF00DB" bgColor="FFFFFF" fontName="" fontStyle="1" nesting="0" />
+            <WordsStyle name="KEYWORDS3"         styleID="6"  fgColor="267F99" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="KEYWORDS4"         styleID="7"  fgColor="E07000" bgColor="FFFFFF" fontName="" fontStyle="1" nesting="0" />
+            <WordsStyle name="KEYWORDS5"         styleID="8"  fgColor="AA1111" bgColor="FFFFFF" fontName="" fontStyle="1" nesting="0" />
+            <WordsStyle name="KEYWORDS6"         styleID="9"  fgColor="098658" bgColor="FFFFFF" fontName="" fontStyle="1" nesting="0" />
+            <WordsStyle name="KEYWORDS7"         styleID="10" fgColor="795E26" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="KEYWORDS8"         styleID="11" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="OPERATORS"         styleID="12" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="1" nesting="0" />
+            <WordsStyle name="FOLDER IN CODE1"   styleID="13" fgColor="0000CC" bgColor="FFFFFF" fontName="" fontStyle="1" nesting="0" />
+            <WordsStyle name="FOLDER IN CODE2"   styleID="14" fgColor="0000CC" bgColor="FFFFFF" fontName="" fontStyle="1" nesting="0" />
+            <WordsStyle name="FOLDER IN COMMENT" styleID="15" fgColor="008000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="DELIMITERS1"       styleID="16" fgColor="A31515" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="DELIMITERS2"       styleID="17" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="DELIMITERS3"       styleID="18" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="DELIMITERS4"       styleID="19" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="DELIMITERS5"       styleID="20" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="DELIMITERS6"       styleID="21" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="DELIMITERS7"       styleID="22" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+            <WordsStyle name="DELIMITERS8"       styleID="23" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" nesting="0" />
+        </Styles>
+    </UserLang>
+</NotepadPlus>

@@ -10,6 +10,8 @@ from tkinter import ttk, filedialog
 from engine import AlgoError, UserCancelError, run_program, parse_program, RESERVED_WORDS
 from flowchart import FlowchartRenderer, _PilFlowRenderer
 
+APP_VERSION = 'v3.2'
+
 
 def resource_path(relative):
     """Chemin vers une ressource — fonctionne en dev et en exe PyInstaller (--onefile)."""
@@ -617,6 +619,7 @@ class AlgoLaboApp:
         info_frame.pack(pady=16, padx=32)
 
         rows = [
+            ('Version',        APP_VERSION),
             ('Developpe par',  'Tristan GERIN - 2026'),
             ('Etablissement',  'Lycee EME, Marseille'),
             ('Licence',        'Logiciel libre - MIT'),
@@ -728,20 +731,59 @@ class AlgoLaboApp:
         self.status_label.pack(side='right', padx=12, pady=8)
         tk.Frame(out_head, bg=BORDER, height=1).pack(fill='x', side='bottom')
 
-        notebook = ttk.Notebook(output_pane)
-        notebook.pack(fill='both', expand=True, padx=8, pady=8)
+        self.notebook = ttk.Notebook(output_pane)
+        self.notebook.pack(fill='both', expand=True, padx=8, pady=8)
 
-        console_frame = tk.Frame(notebook, bg=PANEL)
-        notebook.add(console_frame, text='Console')
+        console_frame = tk.Frame(self.notebook, bg=PANEL)
+        self.notebook.add(console_frame, text='Console')
+        console_frame.rowconfigure(0, weight=1)
+        console_frame.rowconfigure(1, weight=0)
+        console_frame.columnconfigure(0, weight=1)
+
         self.console_text = tk.Text(console_frame, wrap='word', bg=PANEL, fg=TEXT,
                                      font=('Segoe UI', 10), relief='flat', state='disabled', padx=8, pady=8)
-        self.console_text.pack(fill='both', expand=True)
+        self.console_text.grid(row=0, column=0, sticky='nsew')
         self.console_text.tag_configure('err', foreground=ERR_COLOR, background=ERR_BG)
         self.console_text.tag_configure('muted', foreground=MUTED, font=('Segoe UI', 10, 'italic'))
         self.console_text.tag_configure('input_echo', foreground=OK_COLOR, font=('Consolas', 10, 'italic'))
+        self.console_text.tag_configure('lire_prompt', foreground=ACCENT, font=('Consolas', 10))
 
-        trace_frame = tk.Frame(notebook, bg=PANEL)
-        notebook.add(trace_frame, text='Trace des variables')
+        # Zone de saisie inline pour LIRE (cachee par defaut, apparait en bas de la console)
+        self._lire_frame = tk.Frame(console_frame, bg=ACCENT_SOFT, padx=10, pady=8)
+        self._lire_frame.grid(row=1, column=0, sticky='ew')
+        self._lire_frame.grid_remove()
+        self._lire_name_var = tk.StringVar()
+        self._lire_type_var = tk.StringVar()
+        self._lire_val_var  = tk.StringVar()
+        self._lire_err_var  = tk.StringVar()
+
+        _lf_top = tk.Frame(self._lire_frame, bg=ACCENT_SOFT)
+        _lf_top.pack(fill='x', pady=(0, 4))
+        tk.Label(_lf_top, textvariable=self._lire_name_var, bg=ACCENT_SOFT, fg=ACCENT_DARK,
+                 font=('Consolas', 10, 'bold')).pack(side='left')
+        tk.Label(_lf_top, textvariable=self._lire_type_var, bg=ACCENT_SOFT, fg=MUTED,
+                 font=('Segoe UI', 8)).pack(side='left', padx=(10, 0))
+
+        _lf_row = tk.Frame(self._lire_frame, bg=ACCENT_SOFT)
+        _lf_row.pack(fill='x')
+        self._lire_entry = tk.Entry(_lf_row, textvariable=self._lire_val_var,
+                                    font=('Consolas', 11), width=24, relief='flat',
+                                    highlightthickness=1, highlightbackground=BORDER)
+        self._lire_entry.pack(side='left', padx=(0, 8))
+        self._lire_ok_btn = tk.Button(_lf_row, text='Valider', relief='flat',
+                                      bg=ACCENT, fg='white', activebackground=ACCENT_DARK,
+                                      activeforeground='white', font=('Segoe UI', 9, 'bold'),
+                                      padx=10, pady=3, cursor='hand2')
+        self._lire_ok_btn.pack(side='left', padx=(0, 6))
+        self._lire_stop_btn = tk.Button(_lf_row, text='■ Arreter', relief='flat',
+                                        bg=ERR_BG, fg=ERR_COLOR, font=('Segoe UI', 9),
+                                        padx=10, pady=3, cursor='hand2')
+        self._lire_stop_btn.pack(side='left')
+        tk.Label(self._lire_frame, textvariable=self._lire_err_var, bg=ACCENT_SOFT,
+                 fg=ERR_COLOR, font=('Segoe UI', 8)).pack(anchor='w', pady=(2, 0))
+
+        trace_frame = tk.Frame(self.notebook, bg=PANEL)
+        self.notebook.add(trace_frame, text='Trace des variables')
         self.trace_tree = ttk.Treeview(trace_frame, columns=('ligne', 'action', 'etat'), show='headings')
         self.trace_tree.heading('ligne', text='Ligne')
         self.trace_tree.heading('action', text='Action')
@@ -755,8 +797,8 @@ class AlgoLaboApp:
         trace_scroll.pack(side='right', fill='y')
 
         # ---- Onglet Algorigramme ----
-        fc_outer = tk.Frame(notebook, bg=PANEL)
-        notebook.add(fc_outer, text='Algorigramme')
+        fc_outer = tk.Frame(self.notebook, bg=PANEL)
+        self.notebook.add(fc_outer, text='Algorigramme')
 
         fc_toolbar = tk.Frame(fc_outer, bg=PANEL)
         fc_toolbar.pack(fill='x', padx=8, pady=(6, 0))
@@ -1885,81 +1927,39 @@ class AlgoLaboApp:
         self.status_var_color(OK_COLOR)
 
     def _ask_lire(self, name, vtype):
-        """Modal inline bloquant pour la saisie LIRE — avec bouton Arreter."""
-        result = [None]
-        done   = tk.BooleanVar(value=False)
-
-        overlay = tk.Frame(self.root, bg='#1A2035')
-        overlay.place(x=0, y=0, relwidth=1, relheight=1)
-        overlay.lift()
-
-        card = tk.Frame(overlay, bg=BG, highlightbackground=BORDER, highlightthickness=1)
-
-        def close():
-            overlay.destroy()
-            done.set(True)
-
-        hdr = tk.Frame(card, bg=ACCENT_SOFT)
-        hdr.pack(fill='x')
-        tk.Label(hdr, text='LIRE ' + name, bg=ACCENT_SOFT, fg=ACCENT_DARK,
-                 font=('Segoe UI', 10, 'bold'), padx=14, pady=8).pack(side='left')
-
-        body = tk.Frame(card, bg=BG)
-        body.pack(fill='both', expand=True)
-
-        info = tk.Frame(body, bg=BG)
-        info.pack(padx=16, pady=(12, 6), anchor='w')
-        tk.Label(info, text='Type attendu :', bg=BG, fg=MUTED,
-                 font=('Segoe UI', 8)).pack(side='left')
-        tk.Label(info, text=vtype, bg=BG, fg=TEXT,
-                 font=('Consolas', 9, 'bold')).pack(side='left', padx=(4, 0))
-
-        val_var = tk.StringVar()
-        entry = tk.Entry(body, textvariable=val_var, font=('Consolas', 11), width=22,
-                         relief='flat', highlightthickness=1, highlightbackground=BORDER)
-        entry.pack(padx=16, pady=(0, 4))
-
-        hints = {'NOMBRE': 'ex : 42   3.14   -5',
-                 'TEXTE':  'ex : Bonjour   Alice',
+        hints = {'NOMBRE': 'entier ou decimal  ex: 42  3.14',
+                 'TEXTE':  'texte libre  ex: Bonjour',
                  'BOOLEEN': 'VRAI  ou  FAUX',
                  'LISTE':   'valeur pour un element'}
-        tk.Label(body, text=hints.get(vtype, ''), bg=BG, fg=MUTED,
-                 font=('Segoe UI', 8)).pack(padx=16)
+        result = [None]
+        done = tk.BooleanVar(value=False)
 
-        err_label = tk.Label(body, text='', bg=BG, fg=ERR_COLOR, font=('Segoe UI', 8))
-        err_label.pack(padx=16)
+        self._lire_name_var.set('LIRE  ' + name)
+        self._lire_type_var.set(vtype + '   -   ' + hints.get(vtype, ''))
+        self._lire_val_var.set('')
+        self._lire_err_var.set('')
 
         def do_ok():
-            val = val_var.get()
+            val = self._lire_val_var.get()
             if not val.strip():
-                err_label.configure(text='Entrer une valeur.')
+                self._lire_err_var.set('Entrer une valeur.')
                 return
             result[0] = val
-            close()
+            self._lire_frame.grid_remove()
+            done.set(True)
 
         def do_stop():
-            close()  # result[0] reste None -> UserCancelError dans on_run
+            self._lire_frame.grid_remove()
+            done.set(True)
 
-        btn_frame = tk.Frame(body, bg=BG)
-        btn_frame.pack(pady=(8, 14))
-        tk.Button(btn_frame, text='■ Arreter', command=do_stop, relief='flat',
-                  bg=ERR_BG, fg=ERR_COLOR, font=('Segoe UI', 9),
-                  padx=10, pady=4, cursor='hand2').pack(side='left', padx=8)
-        tk.Button(btn_frame, text='Valider', command=do_ok, relief='flat',
-                  bg=ACCENT, fg='white', activebackground=ACCENT_DARK, activeforeground='white',
-                  font=('Segoe UI', 9, 'bold'), padx=10, pady=4, cursor='hand2').pack(side='left', padx=8)
+        self._lire_ok_btn.configure(command=do_ok)
+        self._lire_stop_btn.configure(command=do_stop)
+        self._lire_entry.bind('<Return>', lambda e: do_ok())
+        self._lire_entry.bind('<Escape>', lambda e: do_stop())
 
-        entry.bind('<Return>', lambda e: do_ok())
-        overlay.bind('<Escape>', lambda e: do_stop())
-        card.bind('<Escape>', lambda e: do_stop())
-
-        overlay.update_idletasks()
-        cw = card.winfo_reqwidth()
-        ch = card.winfo_reqheight()
-        rw = self.root.winfo_width()
-        rh = self.root.winfo_height()
-        card.place(x=max(16, (rw - cw) // 2), y=max(16, (rh - ch) // 2))
-        body.after(0, entry.focus_set)
+        self.notebook.select(0)
+        self._lire_frame.grid()
+        self._lire_entry.focus_set()
 
         self.root.wait_variable(done)
 
@@ -1971,6 +1971,7 @@ class AlgoLaboApp:
         source = self.code_text.get('1.0', 'end-1c')
         trace_on = self.trace_var.get()
 
+        self.notebook.select(0)
         self.code_text.tag_remove('err_line', '1.0', 'end')
 
         try:
