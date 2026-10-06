@@ -91,6 +91,35 @@ AlgoLabo/
 └── README.md
 ```
 
+## Historique des versions
+
+### v3.2 - octobre 2026
+- Saisie `LIRE` intégrée dans la console (plus de popup - l'historique des ECRIRE reste visible pendant la saisie)
+- Indentation par bloc : `Tab` / `Shift+Tab` sur une sélection multi-lignes
+- Switch automatique sur l'onglet Console au lancement de l'exécution
+- Numéro de version affiché dans la boîte À propos
+- Fichier de coloration syntaxique pour Notepad++ (`pseudocode-notepadpp.xml`)
+
+### v3.1 - septembre 2026 (AlgoLabo)
+- Renommage complet LogicAlgo -> AlgoLabo (classe, titres, fichiers, build)
+- Bouton `← Affecter` avec dialogue intelligent selon le type de variable
+- Vérification de type stricte à l'affectation
+- Logo AlgoLabo dessiné en canvas Tkinter (sans PNG externe)
+
+### v3.0 - septembre 2026
+- Refactorisation en modules séparés : `engine.py`, `app.py`, `flowchart.py`
+- Support des fonctions utilisateur (`FONCTION` / `DEBUT_FONCTION` / `FIN_FONCTION` / `RETOUR`)
+- Appel de fonction sans mot-clé : `nomFonction(args)` directement dans le code
+
+### v2 - LogicAlgo-EME
+- Refactorisation depuis le fichier monolithique
+- Séparation moteur / interface graphique
+
+### v1 - Base de travail
+- Version monolithique originale (`mini_algobox_eme.py`)
+
+---
+
 ## Licence
 
 GPL v3 - voir [LICENSE](LICENSE).  
